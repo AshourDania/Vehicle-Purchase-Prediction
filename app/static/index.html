@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Purchase Prediction</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232f5bea%22/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e2e5ea;
+    --text: #15181d; --text-2: #5b6370; --text-3: #8a919c;
+    --accent: #2f5bea;
+    --pos: #15803d; --pos-soft: #dcfce7; --neg: #c2410c; --neg-soft: #ffedd5;
+    --track: #e7eaef; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 4px 16px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --surface: #171a20; --surface-2: #1e222a; --border: #2a2f38;
+      --text: #eceff3; --text-2: #a3abb7; --text-3: #737b87;
+      --accent: #7b9bff;
+      --pos: #4ade80; --pos-soft: #14301f; --neg: #fb923c; --neg-soft: #3a2314;
+      --track: #262b34; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 48px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .sub { color: var(--text-2); margin: 0; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    padding: 7px 14px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  form.card { padding: 8px 24px 24px; }
+  fieldset { border: 0; padding: 0; margin: 18px 0 0; }
+  legend { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 14px; }
+  label { display: block; font-size: 13px; color: var(--text-2); }
+  label span.hint { color: var(--text-3); }
+  input, select { width: 100%; margin-top: 4px; padding: 9px 11px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input.invalid { border-color: var(--neg); }
+  .divider { height: 1px; background: var(--border); margin: 22px 0 0; }
+
+  .result { position: sticky; top: 20px; padding: 24px; }
+  .gauge { position: relative; width: 220px; margin: 4px auto 0; }
+  .gauge svg { display: block; width: 100%; height: auto; }
+  .gauge .pct { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; }
+  .pct b { display: block; font-size: 44px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .pct small { color: var(--text-2); font-size: 13px; }
+  .verdict { display: flex; justify-content: center; margin: 14px 0 6px; }
+  .badge { padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; background: var(--surface-2); color: var(--text-2); }
+  .badge.yes { background: var(--pos-soft); color: var(--pos); }
+  .badge.no { background: var(--neg-soft); color: var(--neg); }
+  .note { text-align: center; color: var(--text-3); font-size: 12.5px; margin: 0 0 18px; }
+  h2 { font-size: 14px; margin: 18px 0 10px; }
+  .factors { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+  .factor { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; align-items: center; font-size: 13.5px; }
+  .factor .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .factor .val { color: var(--text-3); }
+  .bar { position: relative; height: 8px; background: var(--track); border-radius: 4px; }
+  .bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--text-3); opacity: .5; }
+  .bar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: all .25s ease; }
+  .bar i.up { left: 50%; background: var(--pos); }
+  .bar i.down { right: 50%; background: var(--neg); }
+  .legend { display: flex; justify-content: space-between; color: var(--text-3); font-size: 12px; margin-top: 10px; }
+  .error { background: var(--neg-soft); color: var(--neg); border-radius: 9px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 12px; }
+  footer { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 12.5px;
+    display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  footer a { color: var(--accent); text-decoration: none; }
+  .loading { opacity: .55; transition: opacity .15s; }
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .result { position: static; order: -1; }
+    .factor { grid-template-columns: minmax(0, 1fr) 84px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Vehicle Purchase Prediction</h1>
+      <p class="sub">Will this car inquiry turn into a sale within 30 days? Explore how customer and vehicle details influence the likelihood of purchase.</p>
+    </div>
+    <div class="presets" aria-label="Load an example">
+      <button class="chip" type="button" data-preset="strong">Strong lead</button>
+      <button class="chip" type="button" data-preset="weak">Weak lead</button>
+      <button class="chip" type="button" data-preset="reset">Reset</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="card" id="form" novalidate>
+      <fieldset>
+        <legend>Customer</legend>
+        <div class="row">
+          <label>Budget (SAR)<input name="Customer_Budget_SAR" type="number" min="1" step="any" required></label>
+          <label>Preferred vehicle type<select name="Preferred_Vehicle_Type"></select></label>
+          <label>Payment method<select name="Financing_Preference"></select></label>
+          <label>Previous inquiries<input name="Previous_Inquiries" type="number" min="0" step="1" required></label>
+          <label>Website visits <span class="hint">(last 30 days)</span><input name="Website_Visits_Last_30_Days" type="number" min="0" step="1" required></label>
+        </div>
+      </fieldset>
+      <div class="divider"></div>
+      <fieldset>
+        <legend>Vehicle</legend>
+        <div class="row">
+          <label>Brand<select name="Brand"></select></label>
+          <label>Model<select name="Car_Model"></select></label>
+          <label>Vehicle type<select name="Vehicle_Type"></select></label>
+          <label>Model year<input name="Model_Year" type="number" min="1990" step="1" required></label>
+          <label>Mileage (km)<input name="Mileage_KM" type="number" min="0" step="any" required></label>
+          <label>Fuel type<select name="Fuel_Type"></select></label>
+          <label>Listed price (SAR)<input name="Listed_Price_SAR" type="number" min="1" step="any" required></label>
+        </div>
+      </fieldset>
+      <div class="divider"></div>
+      <fieldset>
+        <legend>Inquiry</legend>
+        <div class="row">
+          <label>Inquiry date<input name="Inquiry_Date" type="date" required></label>
+          <label>Lead source<select name="Lead_Source"></select></label>
+        </div>
+      </fieldset>
+    </form>
+
+    <section class="card result" id="result" aria-live="polite">
+      <div id="error" class="error" hidden></div>
+      <div class="gauge">
+        <svg viewBox="0 0 220 124" aria-hidden="true">
+          <path d="M 20 112 A 90 90 0 0 1 200 112" fill="none" stroke="var(--track)" stroke-width="16" stroke-linecap="round"/>
+          <path id="arc" d="M 20 112 A 90 90 0 0 1 200 112" fill="none" stroke="var(--accent)" stroke-width="16"
+                stroke-linecap="round" pathLength="100" stroke-dasharray="0 100" style="transition: stroke-dasharray .35s ease, stroke .2s"/>
+          <line id="tick" x1="0" y1="0" x2="0" y2="0" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <div class="pct"><b id="pct">–</b><small>chance of purchase</small></div>
+      </div>
+      <div class="verdict"><span id="badge" class="badge">Calculating…</span></div>
+      <p class="note" id="note">&nbsp;</p>
+
+      <h2>What drives this prediction</h2>
+      <ul class="factors" id="factors"></ul>
+      <div class="legend" style="display: block; text-align: right;">
+      <span>Less likely to buy ← → More likely to buy</span>
+      </div>
+      <footer>
+        <span id="modelinfo">Model</span>
+        <a href="/docs" target="_blank" rel="noopener">API docs ↗</a>
+      </footer>
+    </section>
+  </div>
+</div>
+
+<script>
+const OPTIONS = {
+  Preferred_Vehicle_Type: ["Sedan", "SUV", "Pickup", "Hatchback"],
+  Vehicle_Type: ["Sedan", "SUV", "Pickup", "Hatchback"],
+  Financing_Preference: ["Cash", "Financing", "Undecided"],
+  Fuel_Type: ["Petrol", "Hybrid", "Electric"],
+  Lead_Source: ["Referral", "Walk-in", "Website", "Google Ads", "Haraj", "Instagram", "Snapchat", "TikTok", "X (Twitter)"],
+};
+const MODELS = {
+  BYD: ["Atto 3", "Seal"], Chevrolet: ["Malibu", "Silverado", "Tahoe"], Ford: ["Explorer", "F-150", "Taurus"],
+  Honda: ["Accord", "CR-V", "Civic"], Hyundai: ["Accent", "Elantra", "Santa Fe", "Sonata", "Tucson"],
+  Kia: ["K5", "Pegas", "Picanto", "Sorento", "Sportage"], Lexus: ["ES", "LX", "RX"], MG: ["MG5", "RX5", "ZS"],
+  Nissan: ["Altima", "Navara", "Patrol", "Sunny", "X-Trail"],
+  Toyota: ["Camry", "Corolla", "Hilux", "Land Cruiser", "RAV4", "Yaris"],
+};
+const BODY = { // body type of each model in the dataset, used to fill Vehicle type automatically
+  "Atto 3": "SUV", Seal: "Sedan", Malibu: "Sedan", Silverado: "Pickup", Tahoe: "SUV", Explorer: "SUV",
+  "F-150": "Pickup", Taurus: "Sedan", Accord: "Sedan", "CR-V": "SUV", Civic: "Sedan", Accent: "Sedan",
+  Elantra: "Sedan", "Santa Fe": "SUV", Sonata: "Sedan", Tucson: "SUV", K5: "Sedan", Pegas: "Sedan",
+  Picanto: "Hatchback", Sorento: "SUV", Sportage: "SUV", ES: "Sedan", LX: "SUV", RX: "SUV", MG5: "Sedan",
+  RX5: "SUV", ZS: "SUV", Altima: "Sedan", Navara: "Pickup", Patrol: "SUV", Sunny: "Sedan", "X-Trail": "SUV",
+  Camry: "Sedan", Corolla: "Sedan", Hilux: "Pickup", "Land Cruiser": "SUV", RAV4: "SUV", Yaris: "Sedan",
+};
+const today = new Date().toISOString().slice(0, 10);
+const PRESETS = {
+  reset: { Inquiry_Date: today, Customer_Budget_SAR: 120000, Preferred_Vehicle_Type: "SUV", Lead_Source: "Referral",
+    Website_Visits_Last_30_Days: 4, Previous_Inquiries: 2, Financing_Preference: "Cash", Brand: "Toyota",
+    Car_Model: "RAV4", Vehicle_Type: "SUV", Model_Year: 2022, Mileage_KM: 45000, Fuel_Type: "Petrol", Listed_Price_SAR: 112000 },
+  strong: { Inquiry_Date: today, Customer_Budget_SAR: 150000, Preferred_Vehicle_Type: "Sedan", Lead_Source: "Walk-in",
+    Website_Visits_Last_30_Days: 8, Previous_Inquiries: 4, Financing_Preference: "Cash", Brand: "Toyota",
+    Car_Model: "Camry", Vehicle_Type: "Sedan", Model_Year: 2023, Mileage_KM: 30000, Fuel_Type: "Hybrid", Listed_Price_SAR: 105000 },
+  weak: { Inquiry_Date: today, Customer_Budget_SAR: 70000, Preferred_Vehicle_Type: "Sedan", Lead_Source: "TikTok",
+    Website_Visits_Last_30_Days: 0, Previous_Inquiries: 0, Financing_Preference: "Undecided", Brand: "Nissan",
+    Car_Model: "Patrol", Vehicle_Type: "SUV", Model_Year: 2020, Mileage_KM: 160000, Fuel_Type: "Petrol", Listed_Price_SAR: 115000 },
+};
+const NUMERIC = ["Customer_Budget_SAR", "Website_Visits_Last_30_Days", "Previous_Inquiries", "Model_Year", "Mileage_KM", "Listed_Price_SAR"];
+
+const form = document.getElementById("form");
+const $ = (n) => form.elements[n];
+const fill = (sel, items) => { sel.innerHTML = items.map((v) => `<option>${v}</option>`).join(""); };
+Object.entries(OPTIONS).forEach(([k, v]) => fill($(k), v));
+fill($("Brand"), Object.keys(MODELS));
+
+function setModels(brand, model) {
+  fill($("Car_Model"), MODELS[brand]);
+  $("Car_Model").value = model && MODELS[brand].includes(model) ? model : MODELS[brand][0];
+}
+function load(preset) {
+  const p = PRESETS[preset];
+  setModels(p.Brand, p.Car_Model);
+  Object.entries(p).forEach(([k, v]) => { $(k).value = v; });
+  predict();
+}
+
+let timer, seq = 0;
+function payload() {
+  const data = Object.fromEntries(new FormData(form));
+  NUMERIC.forEach((k) => { data[k] = data[k] === "" ? null : Number(data[k]); });
+  return data;
+}
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.hidden = !msg; el.textContent = msg || "";
+}
+
+async function predict() {
+  const id = ++seq;
+  form.querySelectorAll("input").forEach((i) => i.classList.toggle("invalid", !i.checkValidity()));
+  if (!form.checkValidity()) { showError("Fill in every field with a valid value to see the prediction."); return; }
+  document.getElementById("result").classList.add("loading");
+  try {
+    const res = await fetch("/predict/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload()) });
+    const body = await res.json();
+    if (id !== seq) return; // a newer request is on its way
+    if (!res.ok) {
+      const d = body.detail;
+      showError(Array.isArray(d) ? d.map((e) => `${e.loc.at(-1)}: ${e.msg}`).join(" · ") : String(d));
+      return;
+    }
+    showError(null);
+    render(body);
+  } catch (e) {
+    showError("Can't reach the API. Is uvicorn still running?");
+  } finally {
+    if (id === seq) document.getElementById("result").classList.remove("loading");
+  }
+}
+
+function render(r) {
+  const p = r.purchase_probability, t = r.threshold;
+  document.getElementById("pct").textContent = Math.round(p * 100) + "%";
+  const arc = document.getElementById("arc");
+  arc.setAttribute("stroke-dasharray", `${(p * 100).toFixed(1)} 100`);
+  arc.setAttribute("stroke", r.will_purchase ? "var(--pos)" : "var(--neg)");
+  // threshold tick on the gauge
+  const a = Math.PI * (1 - t), cx = 110, cy = 112;
+  const tick = document.getElementById("tick");
+  tick.setAttribute("x1", cx + 76 * Math.cos(a)); tick.setAttribute("y1", cy - 76 * Math.sin(a));
+  tick.setAttribute("x2", cx + 104 * Math.cos(a)); tick.setAttribute("y2", cy - 104 * Math.sin(a));
+  const badge = document.getElementById("badge");
+  badge.className = "badge " + (r.will_purchase ? "yes" : "no");
+  badge.textContent = r.will_purchase ? "Likely to buy" : "Unlikely to buy";
+  document.getElementById("note").textContent =
+    `Leads at or above ${Math.round(t * 100)}% are flagged as likely buyers (tick on the gauge).`;
+
+  const top = r.factors.filter((f) => Math.abs(f.impact) >= 0.01).slice(0, 7);
+  const max = Math.max(0.6, ...top.map((f) => Math.abs(f.impact)));
+  document.getElementById("factors").innerHTML = top.map((f) => {
+    const w = (Math.abs(f.impact) / max) * 50;
+    const dir = f.impact >= 0 ? "up" : "down";
+    return `<li class="factor" title="${f.impact >= 0 ? "Raises" : "Lowers"} the chance">
+      <span class="name">${f.factor} <span class="val">· ${f.value}</span></span>
+      <span class="bar"><i class="${dir}" style="width:${w}%"></i></span></li>`;
+  }).join("") || `<li class="factor"><span class="name val">Close to an average inquiry on every factor.</span></li>`;
+}
+
+form.addEventListener("input", (e) => {
+  if (e.target.name === "Brand") setModels(e.target.value);
+  if (e.target.name === "Brand" || e.target.name === "Car_Model") $("Vehicle_Type").value = BODY[$("Car_Model").value];
+  clearTimeout(timer); timer = setTimeout(predict, 250);
+});
+form.addEventListener("submit", (e) => e.preventDefault());
+document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => load(b.dataset.preset)));
+
+fetch("/model-info").then((r) => r.json()).then((m) => {
+  const auc = m.evaluation?.test_metrics?.roc_auc;
+  document.getElementById("modelinfo").textContent = `Model ${m.model_version}` + (auc ? ` · test AUC ${auc.toFixed(2)}` : "");
+}).catch(() => {});
+load("reset");
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "test_window_start": "2026-05-23",
+  "threshold": 0.35,
+  "test_metrics": {
+    "roc_auc": 0.7397,
+    "accuracy": 0.6386,
+    "precision": 0.565,
+    "recall": 0.8361,
+    "f1": 0.6744,
+    "brier": 0.2049,
+    "rows": 3982
+  }
+}
